@@ -4,6 +4,8 @@ var ypScreenshot = function(options) {
       widthProportion: 0,
       heightProportion: 0,
       src: "",
+      file: "",
+      load: function() {},
       callback: function() {}
     };
     var _this = this;
@@ -252,10 +254,12 @@ var ypScreenshot = function(options) {
       bu2.style.padding = "0px 10px";
       bu2.style.height = "100%";
       bu2.style.lineHeight = "44px";
-      bu2.ontouchend = _this.screenshot;
+      bu2.onclick = _this.screenshot;
+      
       footer.appendChild(bu2); //追加至遮罩
       mask.appendChild(footer);
       document.body.appendChild(mask); //追加至html;
+      _this.settings.load();
     };
     //创建截图画布
     _this.canvas = function() {
@@ -326,24 +330,114 @@ var ypScreenshot = function(options) {
       _this.settings.div.style.width = _this.settings.myWidth;
       _this.canvas();
     };
+    _this.rotateImg = function(img, direction, canvas) {
+	        //最小与最大旋转方向，图片旋转4次后回到原方向    
+	        var min_step = 0;    
+	        var max_step = 3;    
+	        //var img = document.getElementById(pid);    
+	        if (img == null)return;    
+	        //img的高度和宽度不能在img元素隐藏后获取，否则会出错    
+	        var height = img.height;    
+	        var width = img.width;    
+	        //var step = img.getAttribute('step');    
+	        var step = 2;    
+	        if (step == null) {    
+	            step = min_step;    
+	        }    
+	        if (direction == 'right') {    
+	            step++;    
+	            //旋转到原位置，即超过最大值    
+	            step > max_step && (step = min_step);    
+	        } else {    
+	            step--;    
+	            step < min_step && (step = max_step);    
+	        }    
+	        //旋转角度以弧度值为参数    
+	        var degree = step * 90 * Math.PI / 180;    
+	        var ctx = canvas.getContext('2d');    
+	        switch (step) {    
+	            case 0:    
+	                canvas.width = width;    
+	                canvas.height = height;    
+	                ctx.drawImage(img, 0, 0);    
+	                break;    
+	            case 1:    
+	                canvas.width = height;    
+	                canvas.height = width;    
+	                ctx.rotate(degree);    
+	                ctx.drawImage(img, 0, -height);    
+	                break;    
+	            case 2:    
+	                canvas.width = width;    
+	                canvas.height = height;    
+	                ctx.rotate(degree);    
+	                ctx.drawImage(img, -width, -height);    
+	                break;    
+	            case 3:    
+	                canvas.width = height;    
+	                canvas.height = width;    
+	                ctx.rotate(degree);    
+	                ctx.drawImage(img, -width, 0);    
+	                break;    
+	        }
+	    }
     //初始化方法
     _this.init = function() {
-      var screenWidth = window.screen.width;
-      var screenHeight = window.screen.height;
-      _this.settings = Object.assign(_this.defaults, options);
-      var widthProportion = _this.settings.widthProportion;
-      var heightProportion = _this.settings.heightProportion;
-      _this.settings.isHeight = false; //图片自适应高度比设定高度少 默认是 Y轴高于设定图高
-      _this.settings.context = ""; //画布内容;
-      _this.settings.img = ""; //图片标签
-      _this.settings.canvas = ""; //画布
-      _this.settings.myWidth = parseInt((screenWidth * 92) / 100); //根据图片自适应宽度变量
-      _this.settings.myHeight = parseInt(
-        (_this.settings.myWidth * heightProportion) / widthProportion
-      ); //根据图片自适应高度变量
-      _this.settings.screenWidth = screenWidth; //定义浏览器屏幕宽度
-      _this.settings.screenHeight = screenHeight; //定义浏览器屏幕高度
-      _this.createMask();
+    	_this.settings = Object.assign(_this.defaults, options);
+    	 var reader = new FileReader();
+				reader.readAsDataURL(_this.settings.file);
+				reader.onload = function () {
+					EXIF.getData(_this.settings.file, function() {
+			    	EXIF.getAllTags(this);
+			    	var Orientation = EXIF.getTag(this, 'Orientation');
+			    	var result = "";
+			    	var image = new Image();  
+		        image.src = reader.result;  
+		        image.onload = function() {
+	            var expectWidth = this.width;  
+	            var expectHeight = this.height;  
+	            var canvas = document.createElement("canvas");  
+	            var ctx = canvas.getContext("2d");  
+	            canvas.width = expectWidth;  
+	            canvas.height = expectHeight;
+	            ctx.drawImage(this, 0, 0, expectWidth, expectHeight);  
+	            var base64 = null;  
+            	if(Orientation != "" && Orientation != 1 && typeof(Orientation) != "undefined"){  
+                switch(Orientation){
+                    case 6://需要顺时针（向左）90度旋转  
+                        _this.rotateImg(this,'left', canvas);  
+                        break;  
+                    case 8://需要逆时针（向右）90度旋转  
+                        _this.rotateImg(this,'right', canvas);  
+                        break;
+                    case 3://需要180度旋转  
+                        _this.rotateImg(this,'right', canvas);//转两次  
+                        _this.rotateImg(this,'right', canvas);  
+                        break;  
+                }
+                var result = canvas.toDataURL("image/png", 1);
+                _this.settings.src = result;
+           		} else {
+           			_this.settings.src = reader.result
+							}
+	            var screenWidth = window.screen.width;
+				      var screenHeight = window.screen.height;
+				      var widthProportion = _this.settings.widthProportion;
+				      var heightProportion = _this.settings.heightProportion;
+				      _this.settings.isHeight = false; //图片自适应高度比设定高度少 默认是 Y轴高于设定图高
+				      _this.settings.context = ""; //画布内容;
+				      _this.settings.img = ""; //图片标签
+				      _this.settings.canvas = ""; //画布
+				      _this.settings.myWidth = parseInt((screenWidth * 92) / 100); //根据图片自适应宽度变量
+				      _this.settings.myHeight = parseInt(
+				        (_this.settings.myWidth * heightProportion) / widthProportion
+				      ); //根据图片自适应高度变量
+				      _this.settings.screenWidth = screenWidth; //定义浏览器屏幕宽度
+				      _this.settings.screenHeight = screenHeight; //定义浏览器屏幕高度
+				      _this.createMask();
+		        }
+			    });
+        }
     };
     _this.init();
   }
