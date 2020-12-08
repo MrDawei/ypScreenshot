@@ -1,5 +1,5 @@
 # ypScreenshot
-截图插件
+手机截图插件
 ypScreenshot({
 	widthProportion: 4, //宽度参数比例
 	heightProportion: 3, //高度参数比例
